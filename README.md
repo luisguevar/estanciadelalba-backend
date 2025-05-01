@@ -1,18 +1,18 @@
-# Estancia Del Alba - Sistema Web
+# SISTEMA HOTELERO WEB PARA “ESTANCIA DEL ALBA”
 
-Este repositorio contiene los componentes principales del sistema **Estancia Del Alba**, desarrollado por **Luis A. Guevara**.
-
----
-
-## 🔗 Enlaces del Código Fuente
-
-- **Frontend:** [`/frontend`](./frontend)
-- **Backend:** [`/backend`](./backend)
-- **Página Web:** [`/pagina-web`](./pagina-web)
+Desarrollado por **Luis A. Guevara**
 
 ---
 
-## 🚀 Despliegue
+## 🔗 ENLACES DEL CÓDIGO FUENTE
+
+- **Frontend:** [https://github.com/luisguevar/estanciadelalba-frontend](https://github.com/luisguevar/estanciadelalba-frontend)
+- **Backend:** [https://github.com/luisguevar/estanciadelalba-backend](https://github.com/luisguevar/estanciadelalba-backend)
+- **Página Web:** [https://github.com/luisguevar/estanciadelalba-pagina-web](https://github.com/luisguevar/estanciadelalba-pagina-web)
+
+---
+
+## 🚀 DESPLIEGUE
 
 ### 🔸 Frontend
 - **Framework:** Angular CLI 16.1.0  
@@ -31,13 +31,14 @@ Este repositorio contiene los componentes principales del sistema **Estancia Del
 
 ---
 
-## 📚 Documentación
+## 📚 DOCUMENTACIÓN (Con Autorización)
 
-> Disponible únicamente con autorización.
+[Acceder a la documentación](https://drive.google.com/drive/folders/1tbb_z8-x5PHaGEv0oFkF5k3uA55WJ3PF?usp=sharing)
 
 ---
 
-## 👤 Autor
+## 👤 AUTOR
 
 **Luis A. Guevara**  
-Desarrollador del sistema Estancia Del Alba.
+Desarrollador Full Stack  
+GitHub: [@luisguevar](https://github.com/luisguevar)
