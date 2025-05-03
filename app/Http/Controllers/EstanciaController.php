@@ -18,7 +18,9 @@ class EstanciaController extends Controller
     public function index(Request $request)
     {
         $query = Estancia::with(['huespedTitular', 'habitaciones'])
-            ->whereNotIn('nEstado', [1, 5]);
+            ->whereNotIn('nEstado', [1, 5])
+            ->orderBy('created_at', 'desc');
+
 
         // Filtro por nombres y apellidos
         if ($request->has('cNombres') && !empty($request->input('cNombres'))) {

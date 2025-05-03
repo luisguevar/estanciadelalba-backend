@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Estancia;
 use App\Models\EstanciaHabitacion;
 use App\Models\Pago;
+use App\Models\RegistroIngresosSalidas;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 
@@ -77,6 +78,9 @@ class PanelController extends Controller
         $totalReservas = $estanciasPorReservas->count();
         $porcentajeCheckInPendiente = $totalReservas > 0 ? intval(($totalEstanciasPorCheckIn / $totalReservas) * 100) : 0;
         $porcentajeCheckInPendiente = 100 - $porcentajeCheckInPendiente;
+
+        //Modificacion: Calculo de Ingresos Totales
+        $totalCheckIn = RegistroIngresosSalidas::where('cTipoMovimiento', 'Check-in')->get()->count() ?? 0;
 
 
         //3. CHECK-OUT
@@ -167,8 +171,9 @@ class PanelController extends Controller
                     'nTotalPagosCompletos' => number_format($totalIngresos, 2, '.', ''),
                     'nTotalIngresos' => number_format($totalIngresos, 2, '.', '') // Ingresos totales de todas las estancias
                 ],
+                
                 'resumenCheckIn' => [
-                    'nTotalReservas' => $totalReservas,
+                    'nTotalReservas' => $totalCheckIn, //Se calcula el total de checkINn
                     'nTotalPendienteCheckIn' => $totalEstanciasPorCheckIn,
                     'cPorcentajeCheckInPendiente' => $porcentajeCheckInPendiente . '%',
 

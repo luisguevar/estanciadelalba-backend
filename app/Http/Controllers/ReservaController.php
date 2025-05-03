@@ -13,7 +13,7 @@ class ReservaController extends Controller
     public function index(Request $request)
     {
         $query = Estancia::with(['huespedTitular', 'habitaciones'])
-            ->whereNotIn('nEstado', [2, 3, 4]);
+            ->whereNotIn('nEstado', [2, 3, 4])->orderBy('created_at', 'desc');
 
         // Filtro por nombres y apellidos
         if ($request->has('cNombres') && !empty($request->input('cNombres'))) {
@@ -103,7 +103,7 @@ class ReservaController extends Controller
                 'nTotalNochesReserva' => $reserva->nTotalNoches, // Se calcula en front,
                 'nTotalAPagar' => $reserva->nTotalAPagar, // Se calcula en front
                 'reservaWeb_id' => $reserva->id,
-                'cCodigoPagoReferencia' => $reserva->cCodigoPagoReferencia ??''
+                'cCodigoPagoReferencia' => $reserva->cCodigoPagoReferencia ?? ''
             ];
         });
         // Combinar estancias y reservas web
