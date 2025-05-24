@@ -101,6 +101,7 @@ Route::group(['prefix' => 'recepcion'], function ($router) {
     Route::get('/ObtenerPrecioHab', [RecepcionController::class, 'ObtenerPrecioHab'])->name('buscarHabitacion.ObtenerPrecioHab');
     Route::put('/putCambioHabitacion', [RecepcionController::class, 'putCambioHabitacion'])->name('putCambioHabitacion.index');
     Route::post('/postEstanciaHabitacion', [RecepcionController::class, 'postEstanciaHabitacion'])->name('postEstanciaHabitacion.index');
+    Route::put('/putEstanciaHabitacion', [RecepcionController::class, 'putEstanciaHabitacion'])->name('putEstanciaHabitacion.index');
 });
 
 Route::group(['prefix' => 'panel'], function ($router) {
@@ -160,5 +161,4 @@ Route::group(['prefix' => 'reclamos'], function ($router) {
     Route::put('/{id}/estado', [LibroReclamacionController::class, 'update'])->name('huesped.update');
     Route::get('/{id}/descargar', [LibroReclamacionController::class, 'pdf'])->name('reclamos.pdf');
     Route::put('/enviar-respuesta', [LibroReclamacionController::class, 'enviarRespuestaPdf'])->name('reclamos.enviarRespuestaPdf');
-   
 });

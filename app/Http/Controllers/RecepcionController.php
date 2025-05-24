@@ -40,6 +40,7 @@ class RecepcionController extends Controller
 
             $lstHabitaciones = $habitaciones->map(function ($habitacion) use ($dpFechaCheckIn, $dpFechaCheckOut) {
                 // Determinar el estado de la estancia basado en la lógica proporcionada
+                $estancias = $habitacion->estancias;
                 $estancia = $this->determinarEstadoEstancia($habitacion->estancias, $dpFechaCheckIn, $dpFechaCheckOut);
                 $total = $this->ObtenerPrecioHab($habitacion->id,   $dpFechaCheckIn,  $dpFechaCheckOut);
                 $nNumeroCamas = $habitacion->tipoHabitacion->tipoHabitacionCamas->count();
@@ -70,7 +71,8 @@ class RecepcionController extends Controller
                     'checkOutDate' => $dpFechaCheckOut, // Fecha sin hora
                     'nColorHabitacion' => $nColorHabitacion,
                     'infoEstancia' => $infoEstancia,
-                    'nEstadoHabitacion' => $nEstadoHabitacion
+                    'nEstadoHabitacion' => $nEstadoHabitacion,
+                    /*  '$estancias' => $estancias */
 
                 ];
             });
@@ -142,16 +144,13 @@ class RecepcionController extends Controller
 
     private function determinarEstadoEstancia($estancias, $dpFechaCheckIn, $dpFechaCheckOut)
     {
-        foreach ($estancias as $estancia) {
-            // Verificar si la estancia tiene nEstado = 4 (culminada)
-            if (
-                $estancia->nEstado == 4 &&
-                $this->estaDentroDelRango($dpFechaCheckIn, $dpFechaCheckOut, $estancia->dFechaCheckIn, $estancia->dFechaCheckOut)
-            ) {
-                return ['estado' => 0, 'estancia_id' => $estancia->id, 'dFechaCheckOut' => null]; // Libre y el ID de la estancia
-            }
 
-            // Verificar si la estancia está ocupada (nEstado = 2) con fechas de check-in/out reales
+        //Buscar Estancias con nEstado == 2 //OCUPADO
+
+        $estanciasOcupadas = $estancias->where('nEstado', 2);
+
+
+        foreach ($estanciasOcupadas as $estancia) {
             if (
                 $estancia->nEstado == 2 &&
                 $estancia->dFechaCheckIn &&
@@ -160,10 +159,14 @@ class RecepcionController extends Controller
             ) {
                 return ['estado' => 2, 'estancia_id' => $estancia->id, 'dFechaCheckOut' => $estancia->dFechaReservaCheckOut]; // Ocupada y el ID de la estancia
             }
+        }
 
-            // Verificar si la estancia está reservada (nEstado = 1) con fechas de reserva
+        //Buscar Estancias con nEstado == 1 //RESERVA
+        $estanciasReservadas = $estancias->where('nEstado', 1);
+
+        foreach ($estanciasReservadas as $estancia) {
             if (
-                $estancia->nEstado == 1 &&
+
                 !$estancia->dFechaCheckIn &&
                 !$estancia->dFechaCheckOut &&
                 $estancia->dFechaReservaCheckIn &&
@@ -180,6 +183,19 @@ class RecepcionController extends Controller
 
         // Si no hay coincidencias, la habitación está libre
         return ['estado' => 0, 'estancia_id' => null, 'dFechaCheckOut' => null]; // Libre sin estancia
+
+        /*  foreach ($estancias as $estancia) {
+
+
+
+            // Verificar si la estancia tiene nEstado = 4 (culminada)
+            if (
+                $estancia->nEstado == 4 &&
+                $this->estaDentroDelRango($dpFechaCheckIn, $dpFechaCheckOut, $estancia->dFechaCheckIn, $estancia->dFechaCheckOut)
+            ) {
+                return ['estado' => 0, 'estancia_id' => $estancia->id, 'dFechaCheckOut' => null]; // Libre y el ID de la estancia
+            }
+        } */
     }
 
     private function estaDentroDelRango($inicio1, $fin1, $inicio2, $fin2)
@@ -250,7 +266,32 @@ class RecepcionController extends Controller
         $habitacion = Habitacion::with('tipoHabitacion')->findOrFail($validated['id']);
         $checkIn = Carbon::parse($validated['dpFechaCheckIn']);
         $checkOut = Carbon::parse($validated['dpFechaCheckOut']);
-        $nTotalNoches = $checkIn->diffInDays($checkOut) ?: 1; // Si son el mismo día, es 1 noche
+
+        $checkInDate = $checkIn->copy()->startOfDay();
+        $checkOutDate = $checkOut->copy()->startOfDay();
+        $nTotalNoches = $checkInDate->diffInDays($checkOutDate);
+        $nTotalNoches = $nTotalNoches > 0 ? $nTotalNoches : 1;
+
+        $estancias = EstanciaHabitacion::where('habitacion_id', $validated['id'])
+            ->where('nEstado', 1)
+            ->whereHas('estancia', function ($query) {
+                $query->whereIn('nEstado', [1, 2]);
+            })
+            ->with('estancia')
+            ->get()
+            ->pluck('estancia')
+            ->unique('id')
+            ->map(function ($estancia) {
+                return [
+                    'id' => $estancia->id,
+                    'dFechaCheckIn' => $estancia->dFechaCheckIn ?? $estancia->dFechaReservaCheckIn,
+                    'dFechaCheckOut' => $estancia->dFechaCheckOut ?? $estancia->dFechaReservaCheckOut,
+                ];
+            })
+            ->values(); // reindexar
+
+
+
 
 
 
@@ -264,7 +305,8 @@ class RecepcionController extends Controller
                 'tipoHabitacion_id' => $habitacion->tipo_habitacion_id,
                 'cNombreTipoHabitacion' => $habitacion->tipoHabitacion->cNombreTipo ?? '',
                 'nPrecioEstanciaHabitacion' => $total,
-                'nTotalNoches' => $nTotalNoches
+                'nTotalNoches' => $nTotalNoches,
+                'lstHorariosOcupados' => $estancias
             ],
             'total' => $total,
         ]);
@@ -411,7 +453,7 @@ class RecepcionController extends Controller
 
                 $checkIn = [
                     'cTipoMovimiento' => "Check-in",
-                    'dFechaMovimiento' => $request->input('dFechaCheckIn'),
+                    'dFechaMovimiento' => now(),
                     'cNroHabitacion' => $request->input('cNroHabitacion'), //falta
                     'huespedResponsable_id' =>  $huesped->id,
                     'nNroHuespedes' => $request->input('nNroHuespedes'), //falta
@@ -421,6 +463,8 @@ class RecepcionController extends Controller
                     'nEstado' => 1,
                 ];
                 RegistroIngresosSalidas::create($checkIn);
+
+                $estancia->update(['dFechaCheckIn' => now()]);
             }
 
 
@@ -715,6 +759,65 @@ class RecepcionController extends Controller
             ], 500);
         }
     }
+
+    public function putEstanciaHabitacion(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Buscar estancia
+            $estancia = Estancia::findOrFail($request->input('id'));
+
+            // Actualizar campos de estancia
+            $estancia->update([
+                'dFechaReservaCheckOut' => $request->input('dFechaReservaCheckOut'),
+                'nTotalHabitaciones' => $request->input('nTotalHabitaciones')
+            ]);
+
+            // Obtener la lista de habitaciones
+            $lstEstanciaHabitacion = $request->input('lstEstanciaHabitacion');
+
+            foreach ($lstEstanciaHabitacion as $habitacionEstancia) {
+                if (isset($habitacionEstancia['estanciaHabitacion_id']) && $habitacionEstancia['estanciaHabitacion_id'] > 0) {
+                    // Actualizar habitación de estancia existente
+                    $registro = EstanciaHabitacion::find($habitacionEstancia['estanciaHabitacion_id']);
+                    if ($registro) {
+                        $registro->update([
+                            'habitacion_id' => $habitacionEstancia['habitacion_id'],
+                            'nTotalHuespedesHabitacion' => $habitacionEstancia['nTotalHuespedesHabitacion'],
+                            'nPrecioEstanciaHabitacion' => $habitacionEstancia['nPrecioEstanciaHabitacion'],
+                            'nEstado' => $habitacionEstancia['nEstado'] ?? 1
+                        ]);
+                    }
+                } else {
+                    // Crear nueva habitación de estancia
+                    EstanciaHabitacion::create([
+                        'estancia_id' => $estancia->id,
+                        'habitacion_id' => $habitacionEstancia['habitacion_id'],
+                        'nTotalHuespedesHabitacion' => $habitacionEstancia['nTotalHuespedesHabitacion'],
+                        'nPrecioEstanciaHabitacion' => $habitacionEstancia['nPrecioEstanciaHabitacion'],
+                        'nEstado' => $habitacionEstancia['nEstado'] ?? 1
+                    ]);
+                }
+            }
+
+            DB::commit();
+
+            return response()->json([
+                "success" => true,
+                "message" => "Se actualizó la estancia correctamente"
+            ]);
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json([
+                "success" => false,
+                "error" => "Error inesperado",
+                "details" => $e->getMessage()
+            ], 500);
+        }
+    }
+
+
     public function putCambioHabitacion(Request $request)
     {
         try {
@@ -787,7 +890,7 @@ class RecepcionController extends Controller
                 'nEstadoEstancia' => $nEstadoEstancia,
                 'nEstado' => 1,
                 'usuarioResponsable_id' => $request->input('usuarioResponsable_id'),
-                'huespedResponsable_id'=>   $huespedResponsable_id 
+                'huespedResponsable_id' =>   $huespedResponsable_id
             ]);
 
             DB::commit();

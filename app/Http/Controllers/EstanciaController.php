@@ -138,10 +138,9 @@ class EstanciaController extends Controller
 
         $checkInReserva = Carbon::parse($estancia->dFechaReservaCheckIn)->startOfDay();
         $checkOutReserva = Carbon::parse($estancia->dFechaReservaCheckOut)->startOfDay();
-        $totalNochesReserva = $checkInReserva->diffInDays($checkOutReserva);
+        $totalNochesReserva = $checkInReserva->copy()->startOfDay()->diffInDays($checkOutReserva->copy()->startOfDay());
+        $totalNoches = $checkInDate->copy()->startOfDay()->diffInDays($checkOutDate->copy()->startOfDay());
 
-
-        $totalNoches = $checkInDate->diffInDays($checkOutDate);
 
         //$huesped = Huesped::where('id', $estancia->huespedTitular_id);
 
