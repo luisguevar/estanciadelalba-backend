@@ -123,7 +123,10 @@ class FacturacionController extends Controller
                         'nPrecioUnitario' => $nPrecio,
                         'nTotal' => $nPrecio,
                         'cNombreTipoHabitacion' => $cNombreTipo,
-                        'cDescripcion' => $cDescripcion
+                        'cDescripcion' => $cDescripcion,
+                        'nCantidad' => 1,
+                        'cUnidadMedida' => "ZZ"
+
                     ];
                 }
 
@@ -144,10 +147,16 @@ class FacturacionController extends Controller
                 ->sum('nMontoPagado');
 
             // Obtener habitaciones (nNroHabitacion)
-            $nNroHabitaciones = $estancia->habitaciones->map(function ($habitacionEstancia) {
-                $habitacion = Habitacion::find($habitacionEstancia->habitacion_id);
-                return $habitacion ? $habitacion->nNroHabitacion : null;
-            })->filter()->join(', ');
+            $nNroHabitaciones = $estancia->estanciaHabitaciones
+                ->filter(function ($eh) {
+                    return $eh->nEstado == 1 && $eh->habitacion;
+                })
+                ->map(function ($eh) {
+                    return $eh->habitacion->nNroHabitacion;
+                })
+                ->filter()
+                ->join(', ');
+
 
             return [
                 'cNroDocumento' => $cNroDocumento,
@@ -157,11 +166,14 @@ class FacturacionController extends Controller
                 'cCorreo' => $estancia->huespedTitular->cCorreo ?? null,
                 'cFechaEntrada' => $fechaEntrada ? $fechaEntrada->format('d/m/Y H:i') : '',
                 'cFechaSalida' => $fechaSalida ? $fechaSalida->format('d/m/Y H:i') : '',
-                'lstHabitaciones' => $lstHabitaciones,
+                'lstHabitaciones' => $lstHabitaciones->values(),
+
                 'nEstado' => $estancia->nEstado,
                 'nTotalAPagar' => $nTotalAPagar,
                 'nTotalPagado' => $nTotalPagado,
-                'cHabitaciones' =>  $nNroHabitaciones
+                'cHabitaciones' =>  $nNroHabitaciones,
+
+
             ];
         });
 
@@ -182,12 +194,11 @@ class FacturacionController extends Controller
             $ultimoComprobante = Comprobante::orderByDesc('created_at')->where('nTipoComprobante', $nTipoComprobante)->first();
 
             $nNumero = optional($ultimoComprobante)->nNumero ?? 0;
-            if ($nNumero == 0) {
+             if ($nNumero == 0) {
                 $nNumero = 1;
             } else {
                 $nNumero = $nNumero + 1;
             }
-
 
             $cSerie = (string)$request->input('cSerie');
             $nTipoDocumento = $request->input('nTipoDocumento');
@@ -219,11 +230,11 @@ class FacturacionController extends Controller
                     $total = $nTotal;
 
                     $items[] = [
-                        "unidad_de_medida" => strval("NIU"),
+                        "unidad_de_medida" => strval($habitacion['cUnidadMedida']), // strval("NIU"),
                         "codigo" => strval($habitacion['cNroHabitacion']),
                         "codigo_producto_sunat" => strval("90111800"),
                         "descripcion" => strval($habitacion['cDescripcion']),
-                        "cantidad" => 1,
+                        "cantidad" => $habitacion['nCantidad'],
                         "valor_unitario" => $valor_unitario,
                         "precio_unitario" => $precio_unitario,
                         "subtotal" =>  $valor_unitario,
@@ -280,7 +291,7 @@ class FacturacionController extends Controller
             $client = new Client();
 
             $URL_NUVEFACT  = config('app.url_nuvefact');
-            $TOKEN_NUVEFACT = config('app.token_nuvefact'); 
+            $TOKEN_NUVEFACT = config('app.token_nuvefact');
 
 
 
@@ -384,7 +395,7 @@ class FacturacionController extends Controller
 
             $client = new Client();
             $URL_NUVEFACT  = config('app.url_nuvefact');
-            $TOKEN_NUVEFACT = config('app.token_nuvefact'); 
+            $TOKEN_NUVEFACT = config('app.token_nuvefact');
 
             $response = $client->request('POST', $URL_NUVEFACT, [
                 'headers' => [
