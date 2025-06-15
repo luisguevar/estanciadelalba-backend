@@ -134,6 +134,7 @@ Route::group(['prefix' => 'reporte'], function ($router) {
 Route::group(['prefix' => 'facturacion'], function ($router) {
     Route::post('/generar-comprobante', [FacturacionController::class, 'GenerarComprobante']);
     Route::post('/obtener-comprobante', [FacturacionController::class, 'ObtenerComprobante']);
+    Route::post('/anular-comprobante', [FacturacionController::class, 'AnularComprobante']);
     Route::get('/buscar-estancias', [FacturacionController::class, 'BuscarEstancias']);
 });
 

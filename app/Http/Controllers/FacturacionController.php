@@ -194,12 +194,11 @@ class FacturacionController extends Controller
             $ultimoComprobante = Comprobante::orderByDesc('created_at')->where('nTipoComprobante', $nTipoComprobante)->first();
 
             $nNumero = optional($ultimoComprobante)->nNumero ?? 0;
-             if ($nNumero == 0) {
+            if ($nNumero == 0) {
                 $nNumero = 1;
             } else {
                 $nNumero = $nNumero + 1;
             }
-
             $cSerie = (string)$request->input('cSerie');
             $nTipoDocumento = $request->input('nTipoDocumento');
             $cClienteNroDocumento = (string)$request->input('cClienteNroDocumento');
@@ -382,7 +381,7 @@ class FacturacionController extends Controller
     {
         try {
             $id = (int)$request->input('id');
-            $tipo_de_comprobante = (int)$request->input('tipo_de_comprobante'); // <-- asegúrate que sea este el campo correcto
+            $tipo_de_comprobante = (int)$request->input('tipo_de_comprobante');
             $serie = $request->input('serie');
             $numero = $request->input('numero');
 
@@ -410,9 +409,9 @@ class FacturacionController extends Controller
 
             DB::beginTransaction();
             try {
-                $comprobante = Comprobante::findOrFail($id); // ← aquí sí guardas el modelo
+                $comprobante = Comprobante::findOrFail($id);
                 $comprobante->bAceptadaPorSunat = $responseBody['aceptada_por_sunat'];
-                $comprobante->save(); // ← aquí se guarda realmente
+                $comprobante->save();
 
 
                 DB::commit();
@@ -427,6 +426,74 @@ class FacturacionController extends Controller
 
             return response()->json([
                 'bAceptadaPorSunat' => $responseBody['aceptada_por_sunat'],
+            ]);
+        } catch (ClientException $e) {
+            $responseBody = json_decode($e->getResponse()->getBody()->getContents(), true);
+
+            return response()->json([
+                'error' => true,
+                'codigo' => $responseBody['codigo'] ?? null,
+                'mensaje' => $responseBody['errors'] ?? 'Error desconocido al procesar el comprobante',
+            ], $e->getResponse()->getStatusCode());
+        } catch (\Exception $e) {
+            return response()->json([
+                'error' => true,
+                'mensaje' => $e->getMessage(),
+            ], 500);
+        }
+    }
+
+    public function AnularComprobante(Request $request)
+    {
+        try {
+            $id = (int)$request->input('id');
+            $tipo_de_comprobante = (int)$request->input('tipo_de_comprobante');
+            $serie = $request->input('serie');
+            $numero = $request->input('numero');
+            $motivo = $request->input('motivo');
+
+            $data = [
+                "operacion" => "generar_anulacion",
+                "tipo_de_comprobante" => $tipo_de_comprobante,
+                "serie" => $serie,
+                "numero" => $numero,
+                "motivo" => $motivo
+            ];
+
+            $client = new Client();
+            $URL_NUVEFACT  = config('app.url_nuvefact');
+            $TOKEN_NUVEFACT = config('app.token_nuvefact');
+
+            $response = $client->request('POST', $URL_NUVEFACT, [
+                'headers' => [
+                    'Authorization' => 'Token token="' . $TOKEN_NUVEFACT . '"',
+                    'Content-Type'  => 'application/json',
+                ],
+                'body' => json_encode($data),
+                'verify' => false
+            ]);
+
+            $responseBody = json_decode($response->getBody()->getContents(), true);
+
+            DB::beginTransaction();
+            try {
+                $comprobante = Comprobante::findOrFail($id);
+                $comprobante->bAnulado = true;
+                $comprobante->save(); // 
+
+
+                DB::commit();
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json([
+                    'error' => true,
+                    'bAnulado' => false,
+                    'mensaje' => $e->getMessage(),
+                ], 500);
+            }
+
+            return response()->json([
+                'bAnulado' => true,
             ]);
         } catch (ClientException $e) {
             $responseBody = json_decode($e->getResponse()->getBody()->getContents(), true);

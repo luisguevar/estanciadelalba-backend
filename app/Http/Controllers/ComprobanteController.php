@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Comprobante;
+use Carbon\Carbon;
 use Illuminate\Http\Request;
 
 class ComprobanteController extends Controller
@@ -29,7 +30,7 @@ class ComprobanteController extends Controller
         $query = Comprobante::with([
             'usuarioResponsable:id,name,email,dni'
         ])->orderBy('created_at', 'desc');
-        
+
         // Aplicar filtro de usuario responsable
         if ($usuarioResponsable != 0) {
             $query->where('usuarioResponsable_id', $usuarioResponsable);
@@ -52,15 +53,18 @@ class ComprobanteController extends Controller
         }
 
         // Obtener los registros filtrados
+
         $registros = $query->get();
 
 
         $lstRegistros = $registros->map(function ($registro) {
 
-
+            $fechaCreacion = $registro->created_at;
+            $limiteAnulacion = $fechaCreacion->copy()->addHours(12);
+            $ahora = Carbon::now();
 
             return [
-                'id'=> $registro->id,
+                'id' => $registro->id,
                 'nTipoComprobante' => (int) $registro->nTipoComprobante,
                 'cSerie' => $registro->cSerie,
                 'nNumero' => $registro->nNumero,
@@ -69,6 +73,7 @@ class ComprobanteController extends Controller
                 'cEnlaceXML' => $registro->cEnlaceXML,
                 'cEnlaceCDR' => $registro->cEnlaceCDR,
                 'bAceptadaPorSunat' => $registro->bAceptadaPorSunat,
+                'bAnulado' => $registro->bAnulado,
                 'nTipoDocumento' => $registro->nTipoDocumento,
                 'cClienteNroDocumento' => $registro->cClienteNroDocumento,
                 'cClienteNombre' => $registro->cClienteNombre,
@@ -77,6 +82,7 @@ class ComprobanteController extends Controller
                 'cTotal' => $registro->cTotal,
                 'cUsuarioResponsable' => '(' . $registro->usuarioResponsable->dni . ') ' . $registro->usuarioResponsable->name,
                 'cFechaCreacion' => $registro->created_at->format('d-m-Y H:i'),
+                'bDisponibleAnulacion' => $ahora->lt($limiteAnulacion), // true si estamos antes de +12h
 
 
 
