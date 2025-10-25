@@ -7,6 +7,8 @@ use App\Models\Dia;
 use App\Models\EstanciaHabitacion;
 use App\Models\EstanciaHabitacionHuesped;
 use App\Models\Habitacion;
+use App\Models\HabitacionBloqueoReserva;
+use App\Models\HabitacionIncidencia;
 use App\Models\HabitacionPrecio;
 use App\Models\Temporada;
 use Illuminate\Http\Request;
@@ -19,7 +21,6 @@ class HabitacionController extends Controller
     {
         $id = $request->query('id'); // Obtener el parámetro 'id' desde la consulta
 
-
         $habitacion = Habitacion::find($id);
 
         if (!$habitacion) {
@@ -29,6 +30,7 @@ class HabitacionController extends Controller
             ], 404);
         }
 
+        // Datos básicos de la habitación
         $data = [
             'id' => $habitacion->id,
             'nNroHabitacion' => $habitacion->nNroHabitacion,
@@ -37,20 +39,15 @@ class HabitacionController extends Controller
             'nivelHabitacion_id' => $habitacion->nivelHabitacion_id,
             'cMotivoBloqueo' => $habitacion->cMotivoBloqueo,
             'nEstado' => $habitacion->nEstado,
-
         ];
+
+        // Lista de precios por día
         $dias = Dia::orderBy('id', 'asc')->get();
-        $lstPrecios = [];
-
-
-        // Lista de precios
         $lstPrecios  = $dias->map(function ($dia) use ($habitacion) {
-            // Buscar el precio de la habitación para este día
             $precio = HabitacionPrecio::where('habitacion_id', $habitacion->id)
                 ->where('dia_id', $dia->id)
                 ->first();
 
-            // Si se encuentra el precio, asignarlo, si no, asignar 0
             return [
                 'id' => $dia->id,
                 'cNombreDia' => $dia->cNombreDia,
@@ -59,8 +56,13 @@ class HabitacionController extends Controller
             ];
         });
 
-
+        // Precios por temporada
         $PreciosPorTemporada = Temporada::where('habitacion_id', $habitacion->id)
+            ->where('nEstado', 1)
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $BloqueoReserva = HabitacionBloqueoReserva::where('habitacion_id', $habitacion->id)
             ->where('nEstado', 1)
             ->orderBy('id', 'desc')
             ->get();
@@ -78,13 +80,30 @@ class HabitacionController extends Controller
             ];
         });
 
+        $lstBloqueoReserva = $BloqueoReserva->map(function ($bloqueo) {
+            return [
+                'id' => $bloqueo->id,
+                'cMotivoBloqueo' => $bloqueo->cMotivoBloqueo,
+                'dFechaInicio' => $bloqueo->dFechaInicio,
+                'dFechaFin' => $bloqueo->dFechaFin,
+                'cFechaInicio' => date('d/m/Y', strtotime($bloqueo->dFechaInicio)),
+                'cFechaFin' => date('d/m/Y', strtotime($bloqueo->dFechaFin)),
+                'nEstado' => $bloqueo->nEstado,
+            ];
+        });
+        // 🔹 Lista de todas las incidencias de la habitación con sus imágenes
+        $listIncidencias = HabitacionIncidencia::with('imagenes')
+            ->where('habitacion_id', $habitacion->id)
+            ->orderByDesc('created_at')
+            ->get();
 
         return response()->json([
             'success' => true,
             'data' => $data,
             'lstPrecios' => $lstPrecios,
-            'lstPreciosPorTemporada' => $lstPreciosPorTemporada
-
+            'lstPreciosPorTemporada' => $lstPreciosPorTemporada,
+            'lstBloqueoReserva' => $lstBloqueoReserva,
+            'listIncidencias' => $listIncidencias, // Todas las incidencias con sus imágenes
         ], 200);
     }
 
@@ -187,9 +206,44 @@ class HabitacionController extends Controller
                     }
                 }
             }
+
+            if ($request->has('lstBloqueoReserva')) {
+                foreach ($request->lstBloqueoReserva as $bloqueo) {
+                    if ($bloqueo['id'] == 0) {
+                        // Insertar nueva temporada
+                        HabitacionBloqueoReserva::create([
+                            'habitacion_id' => $habitacion->id,
+                            'cMotivoBloqueo' => $bloqueo['cMotivoBloqueo'],
+                            'dFechaInicio' => $bloqueo['dFechaInicio'],
+                            'dFechaFin' => $bloqueo['dFechaFin'],
+                            'created_at' => now(),
+                            'updated_at' => now(),
+                            'nEstado' =>  $bloqueo['nEstado'],
+                        ]);
+                    } else {
+                        // Actualizar temporada existente
+                        HabitacionBloqueoReserva::where('id', $bloqueo['id'])->update([
+                            'cMotivoBloqueo' => $bloqueo['cMotivoBloqueo'],
+                            'updated_at' => now(),
+                            'nEstado' =>  $bloqueo['nEstado'],
+                        ]);
+                    }
+                }
+            }
+
             if ($request->has('lstPreciosPorTemporadaDelete')) {
                 foreach ($request->lstPreciosPorTemporadaDelete as $temporada) {
                     Temporada::where('id', $temporada['id'])->update([
+
+                        'nEstado' => 0,
+                        'updated_at' => now(),
+                    ]);
+                }
+            }
+
+            if ($request->has('lstBloqueoReservaDelete')) {
+                foreach ($request->lstBloqueoReservaDelete as $bloqueo) {
+                    HabitacionBloqueoReserva::where('id', $bloqueo['id'])->update([
 
                         'nEstado' => 0,
                         'updated_at' => now(),
@@ -212,6 +266,91 @@ class HabitacionController extends Controller
             ], 500);
         }
     }
+
+    public function postBloqueoReserva(Request $request)
+    {
+        try {
+            DB::beginTransaction();
+
+            // Obtener los datos de la solicitud
+            $nTipoAsignacion = $request->nTipoAsignacion;
+            $lstHabitaciones = $request->lstHabitaciones;
+            if ($nTipoAsignacion == 1) {
+
+                foreach ($lstHabitaciones as $habitacion) {
+                    $habitacionData = [
+                        'habitacion_id' => $habitacion['id'],
+                        'cMotivoBloqueo' => $request->cMotivoBloqueo,
+                        'dFechaInicio' => $request->dFechaInicio,
+                        'dFechaFin' => $request->dFechaFin,
+                        'nEstado' => 1,
+                    ];
+                    HabitacionBloqueoReserva::create($habitacionData);
+                }
+            } else if ($nTipoAsignacion == 2) {
+
+                $lstTiposHabitaciones = $request->lstTiposHabitaciones;
+                foreach ($lstTiposHabitaciones as $tipoHabitacion) {
+                    $habitaciones = Habitacion::where('tipoHabitacion_id', $tipoHabitacion['id'])->get();
+                    foreach ($habitaciones as $habitacion) {
+                        $habitacionData = [
+                            'habitacion_id' => $habitacion->id,
+                            'cMotivoBloqueo' => $request->cMotivoBloqueo,
+                            'dFechaInicio' => $request->dFechaInicio,
+                            'dFechaFin' => $request->dFechaFin,
+                            'nEstado' => 1,
+                        ];
+                        HabitacionBloqueoReserva::create($habitacionData);
+                    }
+                }
+            } else if ($nTipoAsignacion == 3) {
+                $lstNivelesHabitaciones = $request->lstNiveles;
+                foreach ($lstNivelesHabitaciones as $nivelHabitacion) {
+                    $habitaciones = Habitacion::where('nivelHabitacion_id', $nivelHabitacion['id'])->get();
+                    foreach ($habitaciones as $habitacion) {
+                        $habitacionData = [
+                            'habitacion_id' => $habitacion->id,
+                            'cMotivoBloqueo' => $request->cMotivoBloqueo,
+                            'dFechaInicio' => $request->dFechaInicio,
+                            'dFechaFin' => $request->dFechaFin,
+                            'nEstado' => 1,
+                        ];
+                        HabitacionBloqueoReserva::create($habitacionData);
+                    }
+                }
+            } else if ($nTipoAsignacion == 4) {
+                $habitaciones = Habitacion::all();
+                foreach ($habitaciones as $habitacion) {
+                    $habitacionData = [
+                        'habitacion_id' => $habitacion->id,
+                        'cMotivoBloqueo' => $request->cMotivoBloqueo,
+                        'dFechaInicio' => $request->dFechaInicio,
+                        'dFechaFin' => $request->dFechaFin,
+                        'nEstado' => 1,
+                    ];
+                    HabitacionBloqueoReserva::create($habitacionData);
+                }
+            }
+
+
+
+            DB::commit();
+
+            return response()->json([
+                'success' => true,
+                'message' => 'Bloqueo de Reserva procesado correctamente'
+            ], 200);
+        } catch (\Exception $e) {
+            DB::rollBack();
+
+            return response()->json([
+                "error" => $e->getMessage(),
+                "message" => "Error inesperado al registrar la información.",
+                "success" => false
+            ], 500);
+        }
+    }
+
 
     public function postTemporada(Request $request)
     {
@@ -344,6 +483,4 @@ class HabitacionController extends Controller
             ], 500);
         }
     }
-
-  
 }

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Comprobante;
+use App\Models\ComprobanteDetalle;
 use App\Models\Estancia;
 use App\Models\Habitacion;
 use Carbon\Carbon;
@@ -191,14 +192,23 @@ class FacturacionController extends Controller
 
             $nTipoComprobante = (int)$request->input('nTipoComprobante');
 
-            $ultimoComprobante = Comprobante::orderByDesc('created_at')->where('nTipoComprobante', $nTipoComprobante)->first();
-
-            $nNumero = optional($ultimoComprobante)->nNumero ?? 0;
-            if ($nNumero == 0) {
-                $nNumero = 1;
+            if ($nTipoComprobante == 3  || $nTipoComprobante == 4) {
+                $nNumero = 0;
+                $codigo_unico = $request->input('codigo_unico');
             } else {
-                $nNumero = $nNumero + 1;
+                $ultimoComprobante = Comprobante::orderByDesc('created_at')->where('nTipoComprobante', $nTipoComprobante)->first();
+                $nNumero = optional($ultimoComprobante)->nNumero ?? 0;
+                if ($nNumero == 0) {
+                    $nNumero = 1;
+                } else {
+                    $nNumero = $nNumero + 1;
+                }
+
+                $codigo_unico = null;
             }
+
+            
+
             $cSerie = (string)$request->input('cSerie');
             $nTipoDocumento = $request->input('nTipoDocumento');
             $cClienteNroDocumento = (string)$request->input('cClienteNroDocumento');
@@ -209,6 +219,18 @@ class FacturacionController extends Controller
             $cTotalIgv = (string)$request->input('cTotalIgv');
             $cTotal  = (string)$request->input('cTotal');
             $usuarioResponsable_id = $request->input('usuarioResponsable_id');
+
+            //para notas
+
+            $documento_que_se_modifica_tipo = $request->input('documento_que_se_modifica_tipo');
+            $documento_que_se_modifica_serie = $request->input('documento_que_se_modifica_serie');
+            $documento_que_se_modifica_numero = $request->input('documento_que_se_modifica_numero');
+            $tipo_de_nota_de_credito = $request->input('tipo_de_nota_de_credito');
+
+
+
+
+
 
             $items = [];
 
@@ -280,7 +302,15 @@ class FacturacionController extends Controller
                 "observaciones" => "",
                 "enviar_automaticamente_a_la_sunat" => "true",
                 "enviar_automaticamente_al_cliente" => "false",
-                "items" => $items
+
+                //para notas de credito
+                "documento_que_se_modifica_tipo" => $documento_que_se_modifica_tipo,
+                "documento_que_se_modifica_serie" => $documento_que_se_modifica_serie,
+                "documento_que_se_modifica_numero" => $documento_que_se_modifica_numero,
+                "tipo_de_nota_de_credito" => $tipo_de_nota_de_credito,
+
+                "items" => $items,
+                "codigo_unico" => $codigo_unico
             ];
 
             /*  return response()->json([
@@ -343,7 +373,16 @@ class FacturacionController extends Controller
                     'usuarioResponsable_id' => $usuarioResponsable_id,
                 ]);
 
-
+                foreach ($habitaciones as $habitacion) {
+                    ComprobanteDetalle::create([
+                        'comprobante_id'   => $comprobante->id,  
+                        'nCantidad'        => $habitacion['nCantidad'],
+                        'cDescripcion'     => $habitacion['cDescripcion'],
+                        'cNroHabitacion'   => $habitacion['cNroHabitacion'],
+                        'cUnidadMedida'    => $habitacion['cUnidadMedida'],
+                        'cSubTotal'        => $habitacion['cSubTotal'],
+                    ]);
+                }
 
                 DB::commit();
             } catch (\Exception $e) {

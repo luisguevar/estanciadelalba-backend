@@ -13,7 +13,7 @@ class ComprobanteController extends Controller
     {
         // Obtener parámetros de la solicitud
         $usuarioResponsable = $request->input('usuarioResponsable', 0);
-        $tipoMovimiento = $request->input('tipoMovimiento', 3);
+        $tipoMovimiento = $request->input('tipoMovimiento', 5);
         $cNroDocumento = $request->input('cNroDocumento', null); //del huesped
         $desde = $request->input('desde', null);
         $hasta = $request->input('hasta', null);
@@ -24,11 +24,16 @@ class ComprobanteController extends Controller
             $nTipoComprobante = 1;
         } elseif ($tipoMovimiento == 2) {
             $nTipoComprobante = 2;
+        } elseif ($tipoMovimiento == 3) {
+            $nTipoComprobante = 3;
+        } elseif ($tipoMovimiento == 4) {
+            $nTipoComprobante = 4;
         }
 
         // Construir consulta base
         $query = Comprobante::with([
-            'usuarioResponsable:id,name,email,dni'
+            'usuarioResponsable:id,name,email,dni',
+            'detalles'
         ])->orderBy('created_at', 'desc');
 
         // Aplicar filtro de usuario responsable
@@ -83,6 +88,17 @@ class ComprobanteController extends Controller
                 'cUsuarioResponsable' => '(' . $registro->usuarioResponsable->dni . ') ' . $registro->usuarioResponsable->name,
                 'cFechaCreacion' => $registro->created_at->format('d-m-Y H:i'),
                 'bDisponibleAnulacion' => $ahora->lt($limiteAnulacion), // true si estamos antes de +12h
+                'cDireccion' => $registro->cDireccion,
+                'cCorreo' => $registro->cCorreo,
+                'lstDetalles' => $registro->detalles->map(function ($d) {
+                    return [
+                        'nCantidad'      => $d->nCantidad,
+                        'cDescripcion'   => $d->cDescripcion,
+                        'cNroHabitacion' => $d->cNroHabitacion,
+                        'cUnidadMedida'  => $d->cUnidadMedida,
+                        'cSubTotal'      => $d->cSubTotal,
+                    ];
+                }),
 
 
 

@@ -10,6 +10,7 @@ use App\Models\Estancia;
 use App\Models\EstanciaHabitacion;
 use App\Models\EstanciaHabitacionHuesped;
 use App\Models\Habitacion;
+use App\Models\HabitacionBloqueoReserva;
 use App\Models\HabitacionPrecio;
 use App\Models\Huesped;
 use App\Models\Pago;
@@ -74,9 +75,14 @@ class ReservaController extends Controller
                 });
         })->pluck('id'); // Extraer solo los IDs de las habitaciones ocupadas
 
+        $habitaciones_bloqueadas = HabitacionBloqueoReserva::activosEnRango($dpFechaCheckInOc, $dpFechaCheckOutOc)
+            ->pluck('habitacion_id');
+
+
         // Obtener las habitaciones desocupadas excluyendo las ocupadas y las en limpieza o bloqueadas
         $habitacionesDescoupadas = Habitacion::where('nEstado', 1) // Solo habitaciones activas
             ->whereNotIn('id', $habitaciones_ocupadas) // Excluir ocupadas
+            ->whereNotIn('id', $habitaciones_bloqueadas)
             ->with([
                 'habitacionServicios.servicio',
                 'tipoHabitacion.tipoHabitacionCamas',
@@ -118,9 +124,11 @@ class ReservaController extends Controller
                     'id' => $habitacion->id,
                     'nNroHabitacion' => $habitacion->nNroHabitacion,
                     'nivelHabitacion_id' => $habitacion->nivelHabitacion_id,
-                    'cImagen' => $habitacion->cImagen
+                    'cImagen' => $habitacion->url_imagen, // ¡usar el accessor!
+
+                    /*  'cImagen' => $habitacion->cImagen
                         ?  $URL_GEMA . "storage/" . $habitacion->cImagen
-                        :  $URL_GEMA . "http://127.0.0.1:8000/storage/habitaciones/default.png",
+                        :  $URL_GEMA . "http://127.0.0.1:8000/storage/habitaciones/default.png", */
                     'nPrecioTotal' => $precioTotal, // Precio total específico para esta habitación
                 ];
             });

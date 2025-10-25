@@ -43,4 +43,9 @@ class Comprobante extends Model
     {
         return $this->belongsTo(User::class, 'usuarioResponsable_id');
     }
+
+    public function detalles()
+    {
+        return $this->hasMany(ComprobanteDetalle::class, 'comprobante_id', 'id');
+    }
 }

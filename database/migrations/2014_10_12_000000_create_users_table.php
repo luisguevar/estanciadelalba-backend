@@ -16,10 +16,11 @@ return new class extends Migration
             $table->string('name');
             $table->string('dni')->unique();
             $table->string('email', 191)->unique();
+            $table->tinyInteger('estado')->default(1); 
             $table->timestamp('email_verified_at')->nullable();
 
             $table->integer('rol_id')->nullable();
-            
+
             $table->string('password');
             $table->rememberToken();
             $table->timestamps();

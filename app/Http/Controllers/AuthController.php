@@ -4,6 +4,9 @@ namespace App\Http\Controllers;
 
 use Illuminate\Support\Facades\Auth;
 use App\Http\Controllers\Controller;
+use App\Models\Menu;
+use App\Models\MenuItem;
+use Illuminate\Http\Request;
 use App\Models\User;
 use Validator;
 
@@ -45,9 +48,55 @@ class AuthController extends Controller
         $user->password = bcrypt(request()->password);
         $user->save();
 
-        return response()->json($user, 201);
+        return response()->json([
+            'success' => true,
+            'message' => 'Usuario registrado correctamente',
+            'user' => $user
+        ], 201);
     }
 
+    public function update(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id' => 'required|exists:users,id',
+            'name' => 'required|string|max:255',
+            'email' => 'required|email|unique:users,email,' . $request->id,
+            'dni' => 'required|string|max:15|unique:users,dni,' . $request->id,
+            'rol_id' => 'required|integer',
+            'estado' => 'required|boolean'
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'success' => false,
+                'errors' => $validator->errors()
+            ], 400);
+        }
+
+        $user = User::find($request->id);
+        if (!$user) {
+            return response()->json([
+                'success' => false,
+                'message' => 'Usuario no encontrado'
+            ], 404);
+        }
+
+        $user->name = $request->name;
+        $user->email = $request->email;
+        $user->dni = $request->dni;
+        $user->rol_id = $request->rol_id;
+        $user->estado = $request->estado;
+
+    
+
+        $user->save();
+
+        return response()->json([
+            'success' => true,
+            'message' => 'Usuario actualizado correctamente',
+            'user' => $user
+        ], 200);
+    }
 
     /**
      * Get a JWT via given credentials.
@@ -106,15 +155,17 @@ class AuthController extends Controller
      */
     protected function respondWithToken($token)
     {
+        $user = auth('api')->user();
+
         return response()->json([
             'access_token' => $token,
-            'token_type' => 'bearer',
-            'expires_in' => auth('api')->factory()->getTTL() * 60,
+            'token_type'   => 'bearer',
+            'expires_in'   => auth('api')->factory()->getTTL() * 60,
             'user' => [
-                "full_name" => auth('api')->user()->name,
-                "email" => auth('api')->user()->email,
-                "id"=> auth('api')->user()->id,
-                "rol_id"=> auth('api')->user()->rol_id
+                "full_name"  => $user->name,
+                "email"      => $user->email,
+                "id"         => $user->id,
+                "rol_id"     => $user->rol_id
             ]
         ]);
     }

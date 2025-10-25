@@ -43,4 +43,24 @@ class Habitacion extends Model
     {
         return $this->hasMany(HabitacionServicio::class);
     }
+    public function incidencias()
+    {
+        return $this->hasMany(HabitacionIncidencia::class, 'habitacion_id');
+    }
+
+    public function incidenciaActiva()
+    {
+        return $this->hasOne(HabitacionIncidencia::class, 'habitacion_id')
+            ->whereIn('nEstado', [0, 1, 2])
+            ->orderByDesc('created_at');
+    }
+
+    public function getUrlImagenAttribute()
+    {
+        $baseUrl = rtrim(config('app.url'), '/');
+        if (str_starts_with($this->cImagen, '/storage/')) {
+            return $baseUrl . $this->cImagen;
+        }
+        return $baseUrl . '/storage/' . ltrim($this->cImagen, '/');
+    }
 }

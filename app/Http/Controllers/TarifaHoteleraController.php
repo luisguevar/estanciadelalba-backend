@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Dia;
 use App\Models\Habitacion;
+use App\Models\HabitacionIncidencia;
 use App\Models\HabitacionPrecio;
 use App\Models\Servicio;
 use App\Models\HabitacionServicio; // Modelo para la tabla HabitacionServicio
@@ -104,16 +105,22 @@ class TarifaHoteleraController extends Controller
                 return $offset < 0 ? $offset + 7 : $offset;
             });
 
+            // 🔹 Obtener incidencia activa solo para el flag
+            $incidenciaActiva = HabitacionIncidencia::where('habitacion_id', $habitacion->id)
+                ->whereIn('nEstado', [0, 1, 2])
+                ->orderByDesc('created_at')
+                ->first();
+
             return [
                 'id' => $habitacion->id,
                 'nNroHabitacion' => $habitacion->nNroHabitacion,
                 'cNombreTipo' => $this->abreviarNombreTipo($habitacion->tipoHabitacion->cNombreTipo ?? null),
                 'nEstado' => $habitacion->nEstado,
-                'cImagen' => $habitacion->cImagen
-                ? env("APP_URL") . "storage/" . $habitacion->cImagen
-                : env("APP_URL") . "storage/habitaciones/default.png",
+                'cImagen' => $habitacion->cImagen,
                 'cNombreNivel' => $habitacion->nivel->cNombreNivel ?? null,
                 'lstPrecios' => $preciosOrdenados->values(),
+                'bTieneIncidenciaActiva' => $incidenciaActiva ? true : false,
+                'incidencia_activa' => $incidenciaActiva,
                 'lstServicios' => $servicios->map(function ($servicio) use ($habitacion) {
                     // Verificar si existe la relación en HabitacionServicio
                     $bActivo = HabitacionServicio::where('habitacion_id', $habitacion->id)
@@ -144,7 +151,7 @@ class TarifaHoteleraController extends Controller
 
 
 
-  
+
 
     public function indexTipoHabitacion()
     {
@@ -166,7 +173,7 @@ class TarifaHoteleraController extends Controller
                 $nNroPersonasCama = $tipoHabitacionCama ? $tipoHabitacionCama->nNroPersonasCama : 0;
                 $nCantidad = $tipoHabitacionCama ? $tipoHabitacionCama->nCantidad : 0;
                 if ($bActivo) {
-                 
+
                     $nTotalCamas += 1;
                 }
 
@@ -207,7 +214,7 @@ class TarifaHoteleraController extends Controller
                 if (isset($habitacionData['id']) && $habitacionData['id'] > 0) {
                     // Actualizar la habitación existente
                     $habitacion = Habitacion::findOrFail($habitacionData['id']);
-                   
+
                     // Eliminar todos los registros actuales de HabitacionServicio para esta habitación
                     HabitacionServicio::where('habitacion_id', $habitacion->id)->delete();
 
@@ -230,11 +237,7 @@ class TarifaHoteleraController extends Controller
                             HabitacionServicio::insert($nuevosServicios);
                         }
                     }
-
-
-                    
                 } else {
-                   
                 }
             }
             DB::commit();
@@ -264,7 +267,7 @@ class TarifaHoteleraController extends Controller
             $tipoHabitacion = TipoHabitacion::find($tipohabitacion_id);
             if ($tipoHabitacion) {
                 $tipoHabitacion->cNombreTipo = $cNombreTipo;
-                $tipoHabitacion->nAforo= $nAforo;
+                $tipoHabitacion->nAforo = $nAforo;
                 $tipoHabitacion->save();
 
                 // Eliminar todos los registros de TipoHabitacionCama para este tipoHabitacion_id
