@@ -63,7 +63,8 @@ class AuthController extends Controller
             'email' => 'required|email|unique:users,email,' . $request->id,
             'dni' => 'required|string|max:15|unique:users,dni,' . $request->id,
             'rol_id' => 'required|integer',
-            'estado' => 'required|boolean'
+            'estado' => 'required|boolean',
+            'password' => 'nullable|min:8' // ← contraseña opcional
         ]);
 
         if ($validator->fails()) {
@@ -87,16 +88,22 @@ class AuthController extends Controller
         $user->rol_id = $request->rol_id;
         $user->estado = $request->estado;
 
-    
+        // Si el request trae password, actualiza la contraseña
+        if ($request->filled('password')) {
+            $user->password = bcrypt($request->password);
+        }
 
         $user->save();
 
         return response()->json([
             'success' => true,
-            'message' => 'Usuario actualizado correctamente',
+            'message' => $request->filled('password')
+                ? 'Usuario y contraseña actualizados correctamente'
+                : 'Usuario actualizado correctamente',
             'user' => $user
         ], 200);
     }
+
 
     /**
      * Get a JWT via given credentials.

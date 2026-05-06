@@ -207,7 +207,7 @@ class FacturacionController extends Controller
                 $codigo_unico = null;
             }
 
-            
+
 
             $cSerie = (string)$request->input('cSerie');
             $nTipoDocumento = $request->input('nTipoDocumento');
@@ -342,6 +342,10 @@ class FacturacionController extends Controller
 
             DB::beginTransaction();
             try {
+
+                if (!in_array($nTipoDocumento, [1, 6, 7])) {
+                    $nTipoDocumento = 99;
+                }
                 $comprobante = Comprobante::create([
 
                     'nTipoComprobante' => $nTipoComprobante,
@@ -375,7 +379,7 @@ class FacturacionController extends Controller
 
                 foreach ($habitaciones as $habitacion) {
                     ComprobanteDetalle::create([
-                        'comprobante_id'   => $comprobante->id,  
+                        'comprobante_id'   => $comprobante->id,
                         'nCantidad'        => $habitacion['nCantidad'],
                         'cDescripcion'     => $habitacion['cDescripcion'],
                         'cNroHabitacion'   => $habitacion['cNroHabitacion'],
